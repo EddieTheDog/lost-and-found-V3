@@ -1,60 +1,46 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Lost & Found Scanner</title>
-  <style>
-    body { font-family: Arial; padding: 20px; background: #f7f7f7; }
-    video { width: 100%; max-width: 500px; border: 2px solid #444; }
-    #result { margin-top: 10px; padding: 10px; background: #fff; border: 1px solid #ccc; }
-  </style>
-</head>
-<body>
-  <h1>Live Scan</h1>
-  <button id="startBtn">Start Scan</button>
-  <video id="video" autoplay muted></video>
-  <div id="result"></div>
+<video id="video" autoplay muted></video>
+<button id="startBtn">Start Scan</button>
+<div id="result"></div>
 
-  <!-- ZXing UMD -->
-  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/dist/index.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/dist/index.min.js"></script>
+<script>
+  window.onload = () => {
+    const startBtn = document.getElementById('startBtn');
+    const video = document.getElementById('video');
+    const resultDiv = document.getElementById('result');
 
-  <script>
-    window.onload = () => {
-      const startBtn = document.getElementById('startBtn');
-      const video = document.getElementById('video');
-      const resultDiv = document.getElementById('result');
+    if (!window.ZXing) {
+      resultDiv.innerText = 'Error: ZXing library not loaded.';
+      return;
+    }
 
-      if (!window.ZXing) {
-        resultDiv.innerText = 'Error: ZXing library not loaded.';
-        return;
-      }
+    const codeReader = new ZXing.BrowserMultiFormatReader();
+    let lastCode = null;
 
-      const codeReader = new ZXing.BrowserMultiFormatReader();
-      let lastCode = null;
+    startBtn.addEventListener('click', async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        video.srcObject = stream;
 
-      startBtn.addEventListener('click', async () => {
-        try {
-          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-          video.srcObject = stream;
-
-          const devices = await codeReader.listVideoInputDevices();
-          if (devices.length === 0) {
-            resultDiv.innerText = 'No camera found';
-            return;
-          }
-          const deviceId = devices[0].deviceId;
-
-          codeReader.decodeFromVideoDevice(deviceId, video, (result, err) => {
-            if (result && result.getText() !== lastCode) {
-              lastCode = result.getText();
-              resultDiv.innerText = 'Scanned: ' + lastCode;
-            }
-          });
-        } catch (err) {
-          resultDiv.innerText = 'Camera access denied or unavailable';
-          console.error(err);
+        const devices = await codeReader.listVideoInputDevices();
+        if (devices.length === 0) {
+          resultDiv.innerText = 'No camera found';
+          return;
         }
-      });
-    };
-  </script>
-</body>
-</html>
+
+        const deviceId = devices[0].deviceId;
+        codeReader.decodeFromVideoDevice(deviceId, video, (result, err) => {
+          if (result && result.getText() !== lastCode) {
+            lastCode = result.getText();
+            resultDiv.innerText = 'Scanned: ' + lastCode;
+          }
+        });
+
+        startBtn.disabled = true;
+      } catch (err) {
+        resultDiv.innerText = 'Camera access denied or unavailable';
+        console.error(err);
+      }
+    });
+  }
+</script>
