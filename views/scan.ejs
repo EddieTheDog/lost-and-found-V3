@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Barcode Scan</title>
+</head>
+<body>
+  <h1>Barcode Scan</h1>
+  <form id="scanForm">
+    Mode:
+    <select id="mode">
+      <option value="lookup">Lookup Item</option>
+      <option value="recent">Connect to Dashboard</option>
+    </select>
+    <input id="codeInput" placeholder="Scan or type code" required>
+    <button type="submit">Scan</button>
+  </form>
+  <div id="result"></div>
+
+  <script>
+    const form = document.getElementById('scanForm');
+    const resultDiv = document.getElementById('result');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const code = document.getElementById('codeInput').value;
+      const mode = document.getElementById('mode').value;
+      const res = await fetch('/scan', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ code, mode })
+      });
+      const data = await res.json();
+      if(data.success){
+        resultDiv.innerHTML = `Item Found: ${data.item.name} - ${data.item.description} - Status: ${data.item.status} - Location: ${data.item.location}`;
+      } else {
+        resultDiv.innerHTML = `Error: ${data.message}`;
+      }
+    });
+  </script>
+</body>
+</html>
