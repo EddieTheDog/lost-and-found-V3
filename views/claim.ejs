@@ -8,7 +8,9 @@
   <h2>Items</h2>
   <ul>
     <% claimItems.forEach(item => { %>
-      <li><%= item.description %> - <%= item.status %></li>
+      <li>
+        <strong><%= item.name %></strong> - <%= item.description %> - <%= item.status %> - Location: <%= item.location %>
+      </li>
     <% }) %>
   </ul>
 </body>
