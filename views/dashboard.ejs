@@ -1,53 +1,72 @@
-<%- include('layout') %>
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Lost and Found Dashboard</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <h1>Admin Dashboard</h1>
 
-<h1>Admin Dashboard</h1>
+  <h2>Add Item</h2>
+  <form action="/items" method="POST">
+    <input name="name" placeholder="Item name" required>
+    <input name="description" placeholder="Description">
+    <input name="location" placeholder="Location">
+    <button type="submit">Add Item</button>
+  </form>
 
-<h2>Claims</h2>
-<ul>
-  <% claims.forEach(claim => { %>
-    <li>
-      <b><%= claim.name %></b> (<%= claim.email %>, <%= claim.phone %>)
-      <% if (claim.password) { %> [Protected] <% } %>
-      <form method="POST" action="/delete-claim" style="display:inline;">
-        <input type="hidden" name="claimId" value="<%= claim.id %>">
-        <button type="submit">Delete Claim</button>
-      </form>
-      <ul>
-        <% claim.itemIds.forEach(itemId => {
-             const item = items.find(i => i.id === itemId);
-        %>
-          <li><%= item ? item.name : 'Deleted item' %> - <%= item ? item.description : '' %></li>
-        <% }) %>
-      </ul>
-    </li>
-  <% }) %>
-</ul>
+  <h2>Add Claim</h2>
+  <form action="/claims" method="POST">
+    <input name="name" placeholder="Name" required>
+    <input name="contact" placeholder="Phone or Email" required>
+    <input name="password" placeholder="Optional password">
+    <button type="submit">Add Claim</button>
+  </form>
 
-<h2>Items</h2>
-<ul id="recentScanned">
-  <% items.forEach(item => { %>
-    <li>
-      <b><%= item.name %></b> - <%= item.description %> (Location: <%= item.location %>)
-      <form method="POST" action="/edit-item" style="display:inline;">
-        <input type="hidden" name="id" value="<%= item.id %>">
-        <input type="text" name="name" value="<%= item.name %>" required>
-        <input type="text" name="description" value="<%= item.description %>">
-        <input type="text" name="location" value="<%= item.location %>">
-        <button type="submit">Edit</button>
-      </form>
-    </li>
-  <% }) %>
-</ul>
+  <h2>Items</h2>
+  <ul>
+    <% items.forEach(item => { %>
+      <li>
+        <form action="/edit-item" method="POST" style="display:inline;">
+          <input type="hidden" name="id" value="<%= item.id %>">
+          <input name="name" value="<%= item.name %>">
+          <input name="description" value="<%= item.description %>">
+          <input name="location" value="<%= item.location %>">
+          <button type="submit">Edit</button>
+        </form>
+        [<%= item.claimId ? 'Claimed' : 'Unclaimed' %>]
+      </li>
+    <% }) %>
+  </ul>
 
-<script src="/socket.io/socket.io.js"></script>
-<script>
-  const socket = io();
-  const recent = document.getElementById('recentScanned');
+  <h2>Claims</h2>
+  <ul>
+    <% claims.forEach(claim => { %>
+      <li>
+        <%= claim.name %> (<%= claim.contact %>) 
+        <form action="/delete-claim" method="POST" style="display:inline;">
+          <input type="hidden" name="id" value="<%= claim.id %>">
+          <button type="submit">Delete</button>
+        </form>
+        Items: 
+        <% claim.items.forEach(i => { %> <%= i %> <% }) %>
+      </li>
+    <% }) %>
+  </ul>
 
-  socket.on('scan', code => {
-    const li = document.createElement('li');
-    li.textContent = code + ' (from scanner)';
-    recent.prepend(li);
-    if (recent.children.length > 10) recent.removeChild(recent.lastChild);
-  });
-</script>
+  <h2>Recent Scans</h2>
+  <ul id="recentList"></ul>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const recentList = document.getElementById('recentList');
+    socket.on('scan', code => {
+      const li = document.createElement('li');
+      li.textContent = code;
+      recentList.prepend(li);
+      if (recentList.children.length > 10) recentList.removeChild(recentList.lastChild);
+    });
+  </script>
+</body>
+</html>
