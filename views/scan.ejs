@@ -1,46 +1,107 @@
-<video id="video" autoplay muted></video>
-<button id="startBtn">Start Scan</button>
-<div id="result"></div>
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Lost & Found Scanner</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; background: #f7f7f7; }
+    video { width: 100%; max-width: 500px; border: 2px solid #444; margin-top: 10px; }
+    #result { margin-top: 10px; padding: 10px; background: #fff; border: 1px solid #ccc; }
+    #recent { margin-top: 20px; }
+    button { margin-right: 10px; padding: 10px 20px; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <h1>Lost & Found Scanner</h1>
 
-<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/dist/index.min.js"></script>
-<script>
-  window.onload = () => {
-    const startBtn = document.getElementById('startBtn');
-    const video = document.getElementById('video');
-    const resultDiv = document.getElementById('result');
+  <button id="startBtn">Start Camera</button>
+  <button id="lookupBtn">Lookup</button>
+  <button id="connectBtn">Connect to Dashboard</button>
 
-    if (!window.ZXing) {
-      resultDiv.innerText = 'Error: ZXing library not loaded.';
-      return;
-    }
+  <video id="video" autoplay muted></video>
+  <div id="result">Scanned code will appear here</div>
 
-    const codeReader = new ZXing.BrowserMultiFormatReader();
-    let lastCode = null;
+  <h3>Recently Scanned Items:</h3>
+  <ul id="recent"></ul>
 
-    startBtn.addEventListener('click', async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        video.srcObject = stream;
+  <!-- ZXing library -->
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/dist/index.min.js"></script>
 
-        const devices = await codeReader.listVideoInputDevices();
-        if (devices.length === 0) {
-          resultDiv.innerText = 'No camera found';
+  <script>
+    window.onload = () => {
+      const startBtn = document.getElementById('startBtn');
+      const lookupBtn = document.getElementById('lookupBtn');
+      const connectBtn = document.getElementById('connectBtn');
+      const video = document.getElementById('video');
+      const resultDiv = document.getElementById('result');
+      const recentList = document.getElementById('recent');
+
+      if (!window.ZXing) {
+        resultDiv.innerText = 'Error: ZXing library not loaded.';
+        return;
+      }
+
+      const codeReader = new ZXing.BrowserMultiFormatReader();
+      let lastCode = null;
+      const recentlyScanned = [];
+
+      // Start camera & scanning
+      startBtn.addEventListener('click', async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+          video.srcObject = stream;
+
+          const devices = await codeReader.listVideoInputDevices();
+          if (devices.length === 0) {
+            resultDiv.innerText = 'No camera found';
+            return;
+          }
+
+          const deviceId = devices[0].deviceId;
+          codeReader.decodeFromVideoDevice(deviceId, video, (result, err) => {
+            if (result && result.getText() !== lastCode) {
+              lastCode = result.getText();
+              resultDiv.innerText = 'Scanned: ' + lastCode;
+
+              // Add to recently scanned
+              recentlyScanned.unshift(lastCode);
+              if (recentlyScanned.length > 10) recentlyScanned.pop();
+
+              recentList.innerHTML = '';
+              recentlyScanned.forEach(code => {
+                const li = document.createElement('li');
+                li.textContent = code;
+                recentList.appendChild(li);
+              });
+            }
+          });
+
+          startBtn.disabled = true;
+        } catch (err) {
+          resultDiv.innerText = 'Camera access denied or unavailable';
+          console.error(err);
+        }
+      });
+
+      // Lookup button
+      lookupBtn.addEventListener('click', () => {
+        if (!lastCode) {
+          alert('No code scanned yet!');
           return;
         }
+        // TODO: Implement lookup API call
+        alert('Lookup code: ' + lastCode);
+      });
 
-        const deviceId = devices[0].deviceId;
-        codeReader.decodeFromVideoDevice(deviceId, video, (result, err) => {
-          if (result && result.getText() !== lastCode) {
-            lastCode = result.getText();
-            resultDiv.innerText = 'Scanned: ' + lastCode;
-          }
-        });
-
-        startBtn.disabled = true;
-      } catch (err) {
-        resultDiv.innerText = 'Camera access denied or unavailable';
-        console.error(err);
-      }
-    });
-  }
-</script>
+      // Connect to dashboard button
+      connectBtn.addEventListener('click', () => {
+        if (!lastCode) {
+          alert('No code scanned yet!');
+          return;
+        }
+        // TODO: Implement dashboard connection
+        alert('Connect to dashboard with code: ' + lastCode);
+      });
+    };
+  </script>
+</body>
+</html>
