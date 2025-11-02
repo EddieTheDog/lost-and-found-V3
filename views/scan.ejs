@@ -2,92 +2,41 @@
 <html>
 <head>
   <title>Live Barcode Scan</title>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 20px; }
-    video { border: 1px solid black; width: 400px; height: 300px; margin-top: 10px; }
-    #result { margin-top: 20px; font-weight: bold; }
-    #permission-message { color: red; font-weight: bold; margin-bottom: 10px; }
-    #startBtn { padding: 10px 20px; font-size: 16px; cursor: pointer; }
-  </style>
 </head>
 <body>
-  <h1>Live Scan</h1>
-
-  <div id="permission-message"></div>
-
-  <label for="mode">Mode:</label>
-  <select id="mode">
-    <option value="lookup">Lookup Item</option>
-    <option value="recent">Connect to Dashboard</option>
-  </select>
-
-  <p>Point your camera at a barcode or QR code, then click "Start Scanning"</p>
-  <button id="startBtn">Start Scanning</button>
-
-  <video id="video" autoplay></video>
+  <button id="startBtn">Start Scan</button>
+  <video id="video" width="400" height="300" autoplay></video>
   <div id="result"></div>
 
-  <!-- ZXing UMD build -->
+  <!-- ZXing UMD -->
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/dist/index.min.js"></script>
 
-  <!-- Your custom code runs AFTER ZXing is loaded -->
   <script>
     window.onload = function() {
+      const startBtn = document.getElementById('startBtn');
       const video = document.getElementById('video');
       const resultDiv = document.getElementById('result');
-      const modeSelect = document.getElementById('mode');
-      const permissionMessage = document.getElementById('permission-message');
-      const startBtn = document.getElementById('startBtn');
-
       const codeReader = new ZXing.BrowserMultiFormatReader();
+
       let lastCode = null;
 
       startBtn.addEventListener('click', async () => {
         try {
           const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
           video.srcObject = stream;
-          video.play();
 
-          const videoInputDevices = await codeReader.listVideoInputDevices();
-          if(videoInputDevices.length === 0){
-            permissionMessage.innerText = 'No camera found on this device.';
-            return;
-          }
-          const firstDeviceId = videoInputDevices[0].deviceId;
+          const devices = await codeReader.listVideoInputDevices();
+          if(devices.length === 0){ alert('No camera found'); return; }
+          const deviceId = devices[0].deviceId;
 
-          codeReader.decodeFromVideoDevice(firstDeviceId, video, async (result, err) => {
-            if(result){
-              const code = result.getText();
-              if(code === lastCode) return;
-              lastCode = code;
-
-              const mode = modeSelect.value;
-
-              try {
-                const res = await fetch('/scan', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ code, mode })
-                });
-                const data = await res.json();
-                if(data.success){
-                  resultDiv.innerHTML = `✅ Scanned: ${data.item.name} - ${data.item.description} - Status: ${data.item.status} - Location: ${data.item.location}`;
-                } else {
-                  resultDiv.innerHTML = `❌ Error: ${data.message}`;
-                }
-              } catch(e){
-                resultDiv.innerHTML = '❌ Network error';
-              }
-
-            } else if(err && !(err instanceof ZXing.NotFoundException)){
-              console.error(err);
+          codeReader.decodeFromVideoDevice(deviceId, video, (result, err) => {
+            if(result && result.getText() !== lastCode){
+              lastCode = result.getText();
+              resultDiv.innerText = "Scanned: " + lastCode;
             }
           });
-
-          startBtn.disabled = true;
-        } catch(err) {
-          permissionMessage.innerText = 'Camera access denied or not available. Please allow camera access.';
-          console.error(err);
+        } catch(e) {
+          alert('Camera access denied or not available');
         }
       });
     }
