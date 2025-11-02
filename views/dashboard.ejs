@@ -22,7 +22,9 @@
     <button type="submit">Create Claim</button>
   </form>
 
-  <!-- Add Warehouse Item -->
+  <hr>
+
+  <!-- Warehouse Items -->
   <h2>Add Warehouse Item</h2>
   <form method="POST" action="/admin/item">
     Name: <input name="name" required>
@@ -31,24 +33,11 @@
     <button type="submit">Add Item</button>
   </form>
 
-  <!-- Existing Claims -->
-  <h2>Existing Claims</h2>
-  <ul>
-    <% for(let c in claims){ %>
-      <li>
-        <strong><%= claims[c].name %></strong> (ID: <%= claims[c].id %>) - 
-        Items: <%= claims[c].items.map(i => i.name).join(', ') %> 
-        [<a href="/claim/<%= claims[c].id %>/qr">QR Code</a>]
-      </li>
-    <% } %>
-  </ul>
-
-  <!-- Warehouse Items -->
-  <h2>Warehouse Items</h2>
+  <h3>Warehouse Items</h3>
   <ul>
     <% for(let i in items){ %>
       <li>
-        <strong><%= items[i].name %></strong> - <%= items[i].description %> - <%= items[i].status %> - <%= items[i].location %>
+        <strong><%= items[i].name %></strong> - <%= items[i].description %> - <%= items[i].status %> - <%= items[i].location %> - Code: <%= items[i].code %>
         [<a href="/item/<%= items[i].id %>/barcode">Barcode</a>]
         <form style="display:inline" method="POST" action="/admin/item/<%= items[i].id %>/status">
           <select name="status">
@@ -64,6 +53,46 @@
         </form>
       </li>
     <% } %>
+  </ul>
+
+  <hr>
+
+  <!-- Claims -->
+  <h2>Existing Claims</h2>
+  <ul>
+    <% for(let c in claims){ %>
+      <li>
+        <strong><%= claims[c].name %></strong> (ID: <%= claims[c].id %>) - Items: <%= claims[c].items.map(i => i.name).join(', ') %>
+        [<a href="/claim/<%= claims[c].id %>/qr">QR Code</a>]
+        <form style="display:inline" method="POST" action="/admin/claim/<%= claims[c].id %>/remove">
+          <button type="submit">Delete Claim</button>
+        </form>
+
+        <!-- Attach scanned items -->
+        <% claims[c].items.forEach((i, idx) => { %>
+          <div>
+            <strong><%= i.name %></strong> - Linked Item: <%= i.linkedItemId ? items[i.linkedItemId].code : 'None' %>
+            <form style="display:inline" method="POST" action="/admin/claim/<%= claims[c].id %>/add-item">
+              <input name="itemCode" placeholder="Scan / Enter Item Code" required>
+              <input type="hidden" name="missingItemIndex" value="<%= idx %>">
+              <button type="submit">Link Item</button>
+            </form>
+          </div>
+        <% }) %>
+      </li>
+    <% } %>
+  </ul>
+
+  <hr>
+
+  <!-- Recently Scanned Items -->
+  <h2>Recently Scanned Items</h2>
+  <ul>
+    <% recentlyScanned.slice(-10).reverse().forEach(r => { 
+      const item = items[r.itemId];
+    %>
+      <li><%= item.name %> - <%= item.description %> - Code: <%= item.code %></li>
+    <% }) %>
   </ul>
 
   <script src="/js/dashboard.js"></script>
