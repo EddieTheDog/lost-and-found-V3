@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Claim Portal</title>
+</head>
+<body>
+  <h1>Claim: <%= claim.name %></h1>
+  <h2>Items</h2>
+  <ul>
+    <% claim.itemIds.forEach(id => { %>
+      <li><%= items[id].description %> - <%= items[id].status %></li>
+    <% }) %>
+  </ul>
+</body>
+</html>
