@@ -1,121 +1,72 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Lost & Found Scanner</title>
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; background: #f7f7f7; }
-    video { width: 100%; max-width: 500px; border: 2px solid #444; margin-top: 10px; }
-    #result { margin-top: 10px; padding: 10px; background: #fff; border: 1px solid #ccc; }
-    #recent { margin-top: 20px; }
-    button { margin-right: 10px; padding: 10px 20px; font-size: 16px; margin-top: 10px; }
-    select { font-size: 16px; margin-top: 10px; }
-  </style>
-</head>
-<body>
-  <h1>Lost & Found Scanner</h1>
+<%- include('layout') %>
 
-  <label for="actionSelect">Select Action Before Scanning:</label>
-  <select id="actionSelect">
-    <option value="lookup">Lookup</option>
-    <option value="dashboard">Connect to Dashboard</option>
-  </select>
+<h1>Scanner</h1>
 
-  <br>
-  <button id="startBtn">Start Camera</button>
-  <button id="flipBtn">Flip Camera</button>
+<label for="actionSelect">Select Action:</label>
+<select id="actionSelect">
+  <option value="lookup">Lookup</option>
+  <option value="dashboard">Connect to Dashboard</option>
+</select>
 
-  <video id="video" autoplay muted></video>
-  <div id="result">Scanned code will appear here</div>
+<br>
+<button id="startBtn">Start Camera</button>
+<button id="flipBtn">Flip Camera</button>
 
-  <h3>Recently Scanned Items:</h3>
-  <ul id="recent"></ul>
+<video id="video" autoplay muted></video>
+<div id="result">Scanned code will appear here</div>
 
-  <!-- ZXing UMD library -->
-  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+<ul id="recent"></ul>
 
-  <script>
-    window.onload = () => {
-      const startBtn = document.getElementById('startBtn');
-      const flipBtn = document.getElementById('flipBtn');
-      const video = document.getElementById('video');
-      const resultDiv = document.getElementById('result');
-      const recentList = document.getElementById('recent');
-      const actionSelect = document.getElementById('actionSelect');
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  const video = document.getElementById('video');
+  const resultDiv = document.getElementById('result');
+  const recentList = document.getElementById('recent');
+  const startBtn = document.getElementById('startBtn');
+  const flipBtn = document.getElementById('flipBtn');
+  const actionSelect = document.getElementById('actionSelect');
 
-      if (!window.ZXing) {
-        resultDiv.innerText = 'Error: ZXing library not loaded.';
-        return;
-      }
+  let selectedDeviceId;
+  let codeReader = new ZXing.BrowserMultiFormatReader();
+  let currentStream;
+  let useFront = false;
 
-      const codeReader = new ZXing.BrowserMultiFormatReader();
-      let lastCode = null;
-      const recentlyScanned = [];
-      let currentDeviceId = null;
-      let devices = [];
-      let facingMode = "environment"; // default back camera
+  async function startCamera() {
+    const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
+    selectedDeviceId = useFront && devices.length > 1 ? devices[1].deviceId : devices[0].deviceId;
+    if (currentStream) {
+      currentStream.getTracks().forEach(track => track.stop());
+    }
+    const constraints = { video: { deviceId: { exact: selectedDeviceId } } };
+    currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+    video.srcObject = currentStream;
 
-      // List available cameras
-      codeReader.listVideoInputDevices().then(videoInputDevices => {
-        devices = videoInputDevices;
-        if (devices.length === 0) resultDiv.innerText = 'No camera found';
-      });
+    codeReader.decodeFromVideoDevice(selectedDeviceId, video, (result, err) => {
+      if (result) handleScan(result.text);
+    });
+  }
 
-      // Start scanning
-      startBtn.addEventListener('click', async () => {
-        try {
-          await startCamera();
-          startBtn.disabled = true;
-        } catch (err) {
-          resultDiv.innerText = 'Camera access denied or unavailable';
-          console.error(err);
-        }
-      });
+  function handleScan(code) {
+    resultDiv.innerHTML = `Scanned: ${code}`;
+    const li = document.createElement('li');
+    li.textContent = code;
+    recentList.prepend(li);
+    if (recentList.children.length > 10) recentList.removeChild(recentList.lastChild);
 
-      // Flip camera
-      flipBtn.addEventListener('click', async () => {
-        facingMode = (facingMode === "environment") ? "user" : "environment";
-        if (video.srcObject) {
-          video.srcObject.getTracks().forEach(track => track.stop());
-        }
-        await startCamera();
-      });
-
-      async function startCamera() {
-        const constraints = { video: { facingMode: facingMode } };
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        video.srcObject = stream;
-
-        // Pick a deviceId if needed
-        if (devices.length > 0) currentDeviceId = devices[0].deviceId;
-
-        codeReader.decodeFromVideoDevice(currentDeviceId, video, (result, err) => {
-          if (result && result.getText() !== lastCode) {
-            lastCode = result.getText();
-            resultDiv.innerText = 'Scanned: ' + lastCode + ' (Action: ' + actionSelect.value + ')';
-
-            // Add to recently scanned
-            recentlyScanned.unshift(lastCode + ' (' + actionSelect.value + ')');
-            if (recentlyScanned.length > 10) recentlyScanned.pop();
-
-            recentList.innerHTML = '';
-            recentlyScanned.forEach(code => {
-              const li = document.createElement('li');
-              li.textContent = code;
-              recentList.appendChild(li);
-            });
-
-            // Handle action
-            if (actionSelect.value === 'lookup') {
-              console.log('Lookup code:', lastCode);
-              // TODO: call lookup API
-            } else if (actionSelect.value === 'dashboard') {
-              console.log('Connect to dashboard with code:', lastCode);
-              // TODO: send code to dashboard
-            }
-          }
+    if (actionSelect.value === 'lookup') {
+      fetch('/lookup/' + code)
+        .then(res => res.json())
+        .then(data => {
+          if (data.error) resultDiv.innerHTML += `<br>${data.error}`;
+          else resultDiv.innerHTML += `<br>Name: ${data.item.name}<br>Description: ${data.item.description}<br>Status: ${data.item.claimId ? 'Claimed' : 'Unclaimed'}<br>Location: ${data.item.location || 'N/A'}`;
         });
-      }
-    };
-  </script>
-</body>
-</html>
+    } else if (actionSelect.value === 'dashboard') {
+      socket.emit('scan', code);
+    }
+  }
+
+  startBtn.addEventListener('click', startCamera);
+  flipBtn.addEventListener('click', () => { useFront = !useFront; startCamera(); });
+</script>
