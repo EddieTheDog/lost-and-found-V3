@@ -11,7 +11,7 @@ addButton.addEventListener('click', () => {
   const desc = descInput.value.trim();
   if (!name) return alert('Item name required');
 
-  const item = { name, description: desc };
+  const item = { name, description: desc, linkedItemId: null };
   items.push(item);
 
   const div = document.createElement('div');
