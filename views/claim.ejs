@@ -10,6 +10,7 @@
     <% claimItems.forEach(item => { %>
       <li>
         <strong><%= item.name %></strong> - <%= item.description %> - <%= item.status %> - Location: <%= item.location %>
+        <% if(item.code){ %> - Code: <%= item.code %> <% } %>
       </li>
     <% }) %>
   </ul>
