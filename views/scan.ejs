@@ -25,24 +25,24 @@
   <button id="startBtn">Start Scanning</button>
 
   <video id="video" autoplay></video>
-
   <div id="result"></div>
 
-  <script type="module">
-    import { BrowserMultiFormatReader } from 'https://cdn.jsdelivr.net/npm/@zxing/library@latest/esm/index.js';
+  <!-- ZXing UMD build -->
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/dist/index.min.js"></script>
 
+  <script>
     const video = document.getElementById('video');
     const resultDiv = document.getElementById('result');
     const modeSelect = document.getElementById('mode');
     const permissionMessage = document.getElementById('permission-message');
     const startBtn = document.getElementById('startBtn');
 
-    const codeReader = new BrowserMultiFormatReader();
-    let lastCode = null; // prevent repeated scans
+    const codeReader = new ZXing.BrowserMultiFormatReader();
+    let lastCode = null;
 
     startBtn.addEventListener('click', async () => {
       try {
-        // Request camera access
+        // Explicitly request camera access
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
         video.srcObject = stream;
         video.play();
