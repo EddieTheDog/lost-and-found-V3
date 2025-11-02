@@ -4,12 +4,15 @@
   <title>Live Barcode Scan</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
-    video { border: 1px solid black; }
+    video { border: 1px solid black; width: 400px; height: 300px; }
     #result { margin-top: 20px; font-weight: bold; }
+    #permission-message { color: red; font-weight: bold; margin-bottom: 10px; }
   </style>
 </head>
 <body>
   <h1>Live Scan</h1>
+
+  <div id="permission-message"></div>
 
   <label for="mode">Mode:</label>
   <select id="mode">
@@ -18,7 +21,7 @@
   </select>
 
   <p>Point your camera at a barcode or QR code</p>
-  <video id="video" width="400" height="300"></video>
+  <video id="video" autoplay></video>
 
   <div id="result"></div>
 
@@ -28,50 +31,63 @@
     const video = document.getElementById('video');
     const resultDiv = document.getElementById('result');
     const modeSelect = document.getElementById('mode');
+    const permissionMessage = document.getElementById('permission-message');
 
     const codeReader = new BrowserMultiFormatReader();
     let lastCode = null; // prevent repeated scans
 
-    codeReader.listVideoInputDevices().then(videoInputDevices => {
-      if(videoInputDevices.length === 0){
-        resultDiv.innerHTML = 'No camera found.';
-        return;
-      }
-      const firstDeviceId = videoInputDevices[0].deviceId;
+    async function startCameraAndScan() {
+      try {
+        // Request camera access
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        video.srcObject = stream;
 
-      codeReader.decodeFromVideoDevice(firstDeviceId, 'video', async (result, err) => {
-        if (result) {
-          const code = result.getText();
-          if(code === lastCode) return; // ignore repeats
-          lastCode = code;
+        // List devices and pick first camera
+        const videoInputDevices = await codeReader.listVideoInputDevices();
+        const firstDeviceId = videoInputDevices[0]?.deviceId || null;
 
-          const mode = modeSelect.value;
-
-          try {
-            const res = await fetch('/scan', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ code, mode })
-            });
-            const data = await res.json();
-
-            if(data.success){
-              resultDiv.innerHTML = `✅ Scanned: ${data.item.name} - ${data.item.description} - Status: ${data.item.status} - Location: ${data.item.location}`;
-            } else {
-              resultDiv.innerHTML = `❌ Error: ${data.message}`;
-            }
-          } catch(e){
-            resultDiv.innerHTML = `❌ Network Error`;
-          }
-
-        } else if(err && !(err instanceof ZXing.NotFoundException)) {
-          console.error(err);
+        if(!firstDeviceId) {
+          permissionMessage.innerText = 'No camera found on this device.';
+          return;
         }
-      });
-    }).catch(err => {
-      console.error(err);
-      resultDiv.innerHTML = 'Error accessing camera.';
-    });
+
+        // Start scanning
+        codeReader.decodeFromVideoDevice(firstDeviceId, 'video', async (result, err) => {
+          if(result){
+            const code = result.getText();
+            if(code === lastCode) return; // skip repeated scans
+            lastCode = code;
+
+            const mode = modeSelect.value;
+
+            try {
+              const res = await fetch('/scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ code, mode })
+              });
+              const data = await res.json();
+              if(data.success){
+                resultDiv.innerHTML = `✅ Scanned: ${data.item.name} - ${data.item.description} - Status: ${data.item.status} - Location: ${data.item.location}`;
+              } else {
+                resultDiv.innerHTML = `❌ Error: ${data.message}`;
+              }
+            } catch(e){
+              resultDiv.innerHTML = '❌ Network error';
+            }
+
+          } else if(err && !(err instanceof ZXing.NotFoundException)){
+            console.error(err);
+          }
+        });
+
+      } catch(err) {
+        console.error(err);
+        permissionMessage.innerText = 'Camera access denied or not available. Please allow camera access to scan items.';
+      }
+    }
+
+    startCameraAndScan();
   </script>
 </body>
 </html>
