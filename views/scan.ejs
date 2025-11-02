@@ -4,6 +4,7 @@
   <title>Live Barcode Scan</title>
 </head>
 <body>
+  <h1>Live Scan</h1>
   <button id="startBtn">Start Scan</button>
   <video id="video" width="400" height="300" autoplay></video>
   <div id="result"></div>
@@ -12,12 +13,11 @@
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/dist/index.min.js"></script>
 
   <script>
-    window.onload = function() {
+    window.onload = () => {
       const startBtn = document.getElementById('startBtn');
       const video = document.getElementById('video');
       const resultDiv = document.getElementById('result');
       const codeReader = new ZXing.BrowserMultiFormatReader();
-
       let lastCode = null;
 
       startBtn.addEventListener('click', async () => {
@@ -26,20 +26,23 @@
           video.srcObject = stream;
 
           const devices = await codeReader.listVideoInputDevices();
-          if(devices.length === 0){ alert('No camera found'); return; }
+          if (devices.length === 0) {
+            alert("No camera found");
+            return;
+          }
           const deviceId = devices[0].deviceId;
 
           codeReader.decodeFromVideoDevice(deviceId, video, (result, err) => {
-            if(result && result.getText() !== lastCode){
+            if (result && result.getText() !== lastCode) {
               lastCode = result.getText();
               resultDiv.innerText = "Scanned: " + lastCode;
             }
           });
-        } catch(e) {
-          alert('Camera access denied or not available');
+        } catch (err) {
+          alert("Camera access denied or unavailable");
         }
       });
-    }
+    };
   </script>
 </body>
 </html>
