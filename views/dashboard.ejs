@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Admin Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <h1>Admin Dashboard</h1>
+
+  <h2>Create Claim</h2>
+  <form method="POST" action="/admin/claim">
+    Name: <input name="name" required>
+    Contact: <input name="contact" required>
+    Password (optional): <input name="password">
+    <button type="submit">Add Claim</button>
+  </form>
+
+  <h2>Add Item</h2>
+  <form method="POST" action="/admin/item">
+    Claim ID: <input name="claimId" required>
+    Description: <input name="description" required>
+    Location: <input name="location">
+    <button type="submit">Add Item</button>
+  </form>
+
+  <h2>Existing Claims</h2>
+  <ul>
+    <% for(let c in claims){ %>
+      <li><strong><%= claims[c].name %></strong> (ID: <%= claims[c].id %>)</li>
+    <% } %>
+  </ul>
+
+  <h2>Existing Items</h2>
+  <ul>
+    <% for(let i in items){ %>
+      <li><%= items[i].description %> - <%= items[i].status %> (ID: <%= items[i].id %>)</li>
+    <% } %>
+  </ul>
+</body>
+</html>
