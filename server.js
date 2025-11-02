@@ -9,11 +9,12 @@ const app = express();
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ----------------- In-memory DB -----------------
-const claims = {}; // claimId -> {name, contact, password, items: [item descriptions]}
-const items = {};  // itemId -> {description, location, status, linkedClaimId}
+const claims = {}; // claimId -> {id, name, contact, password, items: [{name, description}]}
+const items = {};  // itemId -> {id, name, description, location, status, linkedClaimId}
 
 // ----------------- Admin Dashboard -----------------
 app.get('/admin', (req, res) => {
@@ -24,7 +25,7 @@ app.get('/admin', (req, res) => {
 app.post('/admin/claim', (req, res) => {
   const claimId = uuidv4();
   const { name, contact, password, itemsList } = req.body;
-  const missingItems = itemsList.split(',').map(i => i.trim()).filter(Boolean);
+  const missingItems = JSON.parse(itemsList || '[]'); // [{name, description}]
   claims[claimId] = { id: claimId, name, contact, password: password || '', items: missingItems };
   res.redirect('/admin');
 });
@@ -32,8 +33,14 @@ app.post('/admin/claim', (req, res) => {
 // Add a new warehouse item
 app.post('/admin/item', (req, res) => {
   const itemId = uuidv4();
-  const { description, location } = req.body;
-  items[itemId] = { id: itemId, description, location, status: 'in warehouse', linkedClaimId: null };
+  const { name, description, location } = req.body;
+  items[itemId] = { id: itemId, name, description, location, status: 'in warehouse', linkedClaimId: null };
+  res.redirect('/admin');
+});
+
+// Remove an item
+app.post('/admin/item/:id/remove', (req, res) => {
+  delete items[req.params.id];
   res.redirect('/admin');
 });
 
@@ -42,7 +49,7 @@ app.post('/admin/item/:id/status', (req, res) => {
   const { status, linkedClaimId } = req.body;
   if (items[req.params.id]) {
     items[req.params.id].status = status;
-    if (linkedClaimId) items[req.params.id].linkedClaimId = linkedClaimId;
+    if (linkedClaimId) items[req.params.id].linkedClaimId = linkedClaimId || null;
   }
   res.redirect('/admin');
 });
@@ -53,7 +60,7 @@ app.get('/claim/:claimId/qr', async (req, res) => {
   const claimUrl = `${req.protocol}://${req.get('host')}/claim/${req.params.claimId}`;
   try {
     const qr = await qrcode.toDataURL(claimUrl);
-    res.type('html').send(`<img src="${qr}"/>`);
+    res.type('html').send(`<img src="${qr}" />`);
   } catch (e) {
     res.send('Error generating QR code');
   }
@@ -87,15 +94,20 @@ app.get('/claim/:claimId', (req, res) => {
   const enteredPassword = req.query.pwd || '';
   if (claim.password && enteredPassword !== claim.password) {
     return res.send(`<form method="get">
-      Password required: <input name="pwd" type="password"/>
+      Password required: <input name="pwd" type="password" />
       <button type="submit">Enter</button>
     </form>`);
   }
 
   // Find matching items
-  const claimItems = claim.items.map(desc => {
-    const matchedItem = Object.values(items).find(i => i.description.toLowerCase() === desc.toLowerCase());
-    return { description: desc, status: matchedItem ? matchedItem.status : 'not yet found' };
+  const claimItems = claim.items.map(missingItem => {
+    const matchedItem = Object.values(items).find(i => i.name.toLowerCase() === missingItem.name.toLowerCase());
+    return {
+      name: missingItem.name,
+      description: missingItem.description,
+      status: matchedItem ? matchedItem.status : 'not yet found',
+      location: matchedItem ? matchedItem.location : 'N/A'
+    };
   });
 
   res.render('claim', { claim, claimItems });
