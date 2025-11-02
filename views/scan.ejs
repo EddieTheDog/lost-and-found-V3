@@ -38,24 +38,24 @@
 
     async function startCameraAndScan() {
       try {
-        // Request camera access
+        // Explicitly request camera access
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
         video.srcObject = stream;
+        video.play();
 
-        // List devices and pick first camera
+        // List available video devices
         const videoInputDevices = await codeReader.listVideoInputDevices();
-        const firstDeviceId = videoInputDevices[0]?.deviceId || null;
-
-        if(!firstDeviceId) {
+        if(videoInputDevices.length === 0){
           permissionMessage.innerText = 'No camera found on this device.';
           return;
         }
+        const firstDeviceId = videoInputDevices[0].deviceId;
 
-        // Start scanning
-        codeReader.decodeFromVideoDevice(firstDeviceId, 'video', async (result, err) => {
+        // Start live scanning
+        codeReader.decodeFromVideoDevice(firstDeviceId, video, async (result, err) => {
           if(result){
             const code = result.getText();
-            if(code === lastCode) return; // skip repeated scans
+            if(code === lastCode) return; // prevent duplicate scans
             lastCode = code;
 
             const mode = modeSelect.value;
@@ -82,8 +82,8 @@
         });
 
       } catch(err) {
-        console.error(err);
         permissionMessage.innerText = 'Camera access denied or not available. Please allow camera access to scan items.';
+        console.error(err);
       }
     }
 
