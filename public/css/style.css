@@ -1,6 +1,49 @@
-body { font-family: Arial, sans-serif; margin: 20px; }
-video { width: 100%; max-width: 400px; border: 1px solid #333; }
-button { margin: 5px; }
-ul { list-style: none; padding-left: 0; }
-li { margin-bottom: 5px; }
-input { margin: 2px; }
+const video = document.getElementById('video');
+const startBtn = document.getElementById('startBtn');
+const flipBtn = document.getElementById('flipBtn');
+const resultDiv = document.getElementById('result');
+const recentList = document.getElementById('recentList');
+const actionSelect = document.getElementById('actionSelect');
+
+let selectedDeviceId;
+let codeReader = new ZXing.BrowserMultiFormatReader();
+let currentStream;
+let useFront = false;
+const socket = io();
+
+async function startCamera() {
+  const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
+  selectedDeviceId = useFront && devices.length > 1 ? devices[1].deviceId : devices[0].deviceId;
+
+  if (currentStream) currentStream.getTracks().forEach(track => track.stop());
+
+  const constraints = { video: { deviceId: { exact: selectedDeviceId } } };
+  currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+  video.srcObject = currentStream;
+
+  codeReader.decodeFromVideoDevice(selectedDeviceId, video, (result, err) => {
+    if (result) handleScan(result.text);
+  });
+}
+
+function handleScan(code) {
+  resultDiv.innerHTML = `Scanned: ${code}`;
+  const li = document.createElement('li');
+  li.textContent = code;
+  recentList.prepend(li);
+  if (recentList.children.length > 10) recentList.removeChild(recentList.lastChild);
+
+  if (actionSelect.value === 'lookup') {
+    fetch('/lookup/' + code)
+      .then(res => res.json())
+      .then(data => {
+        if (data.error) resultDiv.innerHTML += `<br>${data.error}`;
+        else resultDiv.innerHTML += `<br>Name: ${data.item.name}<br>Description: ${data.item.description}<br>Status: ${data.item.claimId ? 'Claimed' : 'Unclaimed'}<br>Location: ${data.item.location || 'N/A'}`;
+      });
+  } else if (actionSelect.value === 'dashboard') {
+    socket.emit('scan', code);
+  }
+}
+
+startBtn.addEventListener('click', startCamera);
+flipBtn.addEventListener('click', () => { useFront = !useFront; startCamera(); });
