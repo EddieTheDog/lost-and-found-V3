@@ -23,8 +23,8 @@
   <h3>Recently Scanned Items:</h3>
   <ul id="recent"></ul>
 
-  <!-- ZXing library -->
-  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/dist/index.min.js"></script>
+  <!-- ZXing UMD library -->
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
 
   <script>
     window.onload = () => {
@@ -62,7 +62,7 @@
               lastCode = result.getText();
               resultDiv.innerText = 'Scanned: ' + lastCode;
 
-              // Add to recently scanned
+              // Add to recently scanned list
               recentlyScanned.unshift(lastCode);
               if (recentlyScanned.length > 10) recentlyScanned.pop();
 
