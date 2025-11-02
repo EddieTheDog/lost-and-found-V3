@@ -7,35 +7,48 @@
 <body>
   <h1>Admin Dashboard</h1>
 
+  <!-- Create Claim -->
   <h2>Create Claim</h2>
-  <form method="POST" action="/admin/claim">
+  <form id="claimForm" method="POST" action="/admin/claim">
     Name: <input name="name" required>
     Contact: <input name="contact" required>
     Password (optional): <input name="password">
-    Missing Items (comma-separated): <input name="itemsList" required>
-    <button type="submit">Add Claim</button>
+    <h3>Missing Items</h3>
+    <div id="claimItemsList"></div>
+    <input id="itemName" placeholder="Item Name">
+    <input id="itemDesc" placeholder="Item Description">
+    <button type="button" id="addClaimItem">Add Item</button>
+    <input type="hidden" name="itemsList" id="itemsListInput">
+    <button type="submit">Create Claim</button>
   </form>
 
+  <!-- Add Warehouse Item -->
   <h2>Add Warehouse Item</h2>
   <form method="POST" action="/admin/item">
+    Name: <input name="name" required>
     Description: <input name="description" required>
     Location: <input name="location" required>
     <button type="submit">Add Item</button>
   </form>
 
+  <!-- Existing Claims -->
   <h2>Existing Claims</h2>
   <ul>
     <% for(let c in claims){ %>
-      <li><strong><%= claims[c].name %></strong> (ID: <%= claims[c].id %>) - Items: <%= claims[c].items.join(', ') %> 
+      <li>
+        <strong><%= claims[c].name %></strong> (ID: <%= claims[c].id %>) - 
+        Items: <%= claims[c].items.map(i => i.name).join(', ') %> 
         [<a href="/claim/<%= claims[c].id %>/qr">QR Code</a>]
       </li>
     <% } %>
   </ul>
 
+  <!-- Warehouse Items -->
   <h2>Warehouse Items</h2>
   <ul>
     <% for(let i in items){ %>
-      <li><%= items[i].description %> - <%= items[i].status %> - <%= items[i].location %> 
+      <li>
+        <strong><%= items[i].name %></strong> - <%= items[i].description %> - <%= items[i].status %> - <%= items[i].location %>
         [<a href="/item/<%= items[i].id %>/barcode">Barcode</a>]
         <form style="display:inline" method="POST" action="/admin/item/<%= items[i].id %>/status">
           <select name="status">
@@ -43,11 +56,16 @@
             <option value="waiting for pickup" <%= items[i].status==='waiting for pickup'?'selected':'' %>>Waiting for Pickup</option>
             <option value="returned" <%= items[i].status==='returned'?'selected':'' %>>Returned</option>
           </select>
-          Link to Claim ID (optional): <input name="linkedClaimId" placeholder="Claim ID">
+          Link to Claim ID: <input name="linkedClaimId" placeholder="Claim ID">
           <button type="submit">Update</button>
+        </form>
+        <form style="display:inline" method="POST" action="/admin/item/<%= items[i].id %>/remove">
+          <button type="submit">Remove</button>
         </form>
       </li>
     <% } %>
   </ul>
+
+  <script src="/js/dashboard.js"></script>
 </body>
 </html>
