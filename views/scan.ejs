@@ -1,40 +1,76 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Barcode Scan</title>
+  <title>Live Barcode Scan</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    video { border: 1px solid black; }
+    #result { margin-top: 20px; font-weight: bold; }
+  </style>
 </head>
 <body>
-  <h1>Barcode Scan</h1>
-  <form id="scanForm">
-    Mode:
-    <select id="mode">
-      <option value="lookup">Lookup Item</option>
-      <option value="recent">Connect to Dashboard</option>
-    </select>
-    <input id="codeInput" placeholder="Scan or type code" required>
-    <button type="submit">Scan</button>
-  </form>
+  <h1>Live Scan</h1>
+
+  <label for="mode">Mode:</label>
+  <select id="mode">
+    <option value="lookup">Lookup Item</option>
+    <option value="recent">Connect to Dashboard</option>
+  </select>
+
+  <p>Point your camera at a barcode or QR code</p>
+  <video id="video" width="400" height="300"></video>
+
   <div id="result"></div>
 
-  <script>
-    const form = document.getElementById('scanForm');
-    const resultDiv = document.getElementById('result');
+  <script type="module">
+    import { BrowserMultiFormatReader } from 'https://cdn.jsdelivr.net/npm/@zxing/library@latest/esm/index.js';
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const code = document.getElementById('codeInput').value;
-      const mode = document.getElementById('mode').value;
-      const res = await fetch('/scan', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ code, mode })
-      });
-      const data = await res.json();
-      if(data.success){
-        resultDiv.innerHTML = `Item Found: ${data.item.name} - ${data.item.description} - Status: ${data.item.status} - Location: ${data.item.location}`;
-      } else {
-        resultDiv.innerHTML = `Error: ${data.message}`;
+    const video = document.getElementById('video');
+    const resultDiv = document.getElementById('result');
+    const modeSelect = document.getElementById('mode');
+
+    const codeReader = new BrowserMultiFormatReader();
+    let lastCode = null; // prevent repeated scans
+
+    codeReader.listVideoInputDevices().then(videoInputDevices => {
+      if(videoInputDevices.length === 0){
+        resultDiv.innerHTML = 'No camera found.';
+        return;
       }
+      const firstDeviceId = videoInputDevices[0].deviceId;
+
+      codeReader.decodeFromVideoDevice(firstDeviceId, 'video', async (result, err) => {
+        if (result) {
+          const code = result.getText();
+          if(code === lastCode) return; // ignore repeats
+          lastCode = code;
+
+          const mode = modeSelect.value;
+
+          try {
+            const res = await fetch('/scan', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code, mode })
+            });
+            const data = await res.json();
+
+            if(data.success){
+              resultDiv.innerHTML = `✅ Scanned: ${data.item.name} - ${data.item.description} - Status: ${data.item.status} - Location: ${data.item.location}`;
+            } else {
+              resultDiv.innerHTML = `❌ Error: ${data.message}`;
+            }
+          } catch(e){
+            resultDiv.innerHTML = `❌ Network Error`;
+          }
+
+        } else if(err && !(err instanceof ZXing.NotFoundException)) {
+          console.error(err);
+        }
+      });
+    }).catch(err => {
+      console.error(err);
+      resultDiv.innerHTML = 'Error accessing camera.';
     });
   </script>
 </body>
