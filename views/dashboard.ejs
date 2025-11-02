@@ -1,100 +1,53 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Admin Dashboard</title>
-  <link rel="stylesheet" href="/css/style.css">
-</head>
-<body>
-  <h1>Admin Dashboard</h1>
+<%- include('layout') %>
 
-  <!-- Create Claim -->
-  <h2>Create Claim</h2>
-  <form id="claimForm" method="POST" action="/admin/claim">
-    Name: <input name="name" required>
-    Contact: <input name="contact" required>
-    Password (optional): <input name="password">
-    <h3>Missing Items</h3>
-    <div id="claimItemsList"></div>
-    <input id="itemName" placeholder="Item Name">
-    <input id="itemDesc" placeholder="Item Description">
-    <button type="button" id="addClaimItem">Add Item</button>
-    <input type="hidden" name="itemsList" id="itemsListInput">
-    <button type="submit">Create Claim</button>
-  </form>
+<h1>Admin Dashboard</h1>
 
-  <hr>
-
-  <!-- Warehouse Items -->
-  <h2>Add Warehouse Item</h2>
-  <form method="POST" action="/admin/item">
-    Name: <input name="name" required>
-    Description: <input name="description" required>
-    Location: <input name="location" required>
-    <button type="submit">Add Item</button>
-  </form>
-
-  <h3>Warehouse Items</h3>
-  <ul>
-    <% for(let i in items){ %>
-      <li>
-        <strong><%= items[i].name %></strong> - <%= items[i].description %> - <%= items[i].status %> - <%= items[i].location %> - Code: <%= items[i].code %>
-        [<a href="/item/<%= items[i].id %>/barcode">Barcode</a>]
-        <form style="display:inline" method="POST" action="/admin/item/<%= items[i].id %>/status">
-          <select name="status">
-            <option value="in warehouse" <%= items[i].status==='in warehouse'?'selected':'' %>>In Warehouse</option>
-            <option value="waiting for pickup" <%= items[i].status==='waiting for pickup'?'selected':'' %>>Waiting for Pickup</option>
-            <option value="returned" <%= items[i].status==='returned'?'selected':'' %>>Returned</option>
-          </select>
-          Link to Claim ID: <input name="linkedClaimId" placeholder="Claim ID">
-          <button type="submit">Update</button>
-        </form>
-        <form style="display:inline" method="POST" action="/admin/item/<%= items[i].id %>/remove">
-          <button type="submit">Remove</button>
-        </form>
-      </li>
-    <% } %>
-  </ul>
-
-  <hr>
-
-  <!-- Claims -->
-  <h2>Existing Claims</h2>
-  <ul>
-    <% for(let c in claims){ %>
-      <li>
-        <strong><%= claims[c].name %></strong> (ID: <%= claims[c].id %>) - Items: <%= claims[c].items.map(i => i.name).join(', ') %>
-        [<a href="/claim/<%= claims[c].id %>/qr">QR Code</a>]
-        <form style="display:inline" method="POST" action="/admin/claim/<%= claims[c].id %>/remove">
-          <button type="submit">Delete Claim</button>
-        </form>
-
-        <!-- Attach scanned items -->
-        <% claims[c].items.forEach((i, idx) => { %>
-          <div>
-            <strong><%= i.name %></strong> - Linked Item: <%= i.linkedItemId ? items[i.linkedItemId].code : 'None' %>
-            <form style="display:inline" method="POST" action="/admin/claim/<%= claims[c].id %>/add-item">
-              <input name="itemCode" placeholder="Scan / Enter Item Code" required>
-              <input type="hidden" name="missingItemIndex" value="<%= idx %>">
-              <button type="submit">Link Item</button>
-            </form>
-          </div>
+<h2>Claims</h2>
+<ul>
+  <% claims.forEach(claim => { %>
+    <li>
+      <b><%= claim.name %></b> (<%= claim.email %>, <%= claim.phone %>)
+      <% if (claim.password) { %> [Protected] <% } %>
+      <form method="POST" action="/delete-claim" style="display:inline;">
+        <input type="hidden" name="claimId" value="<%= claim.id %>">
+        <button type="submit">Delete Claim</button>
+      </form>
+      <ul>
+        <% claim.itemIds.forEach(itemId => {
+             const item = items.find(i => i.id === itemId);
+        %>
+          <li><%= item ? item.name : 'Deleted item' %> - <%= item ? item.description : '' %></li>
         <% }) %>
-      </li>
-    <% } %>
-  </ul>
+      </ul>
+    </li>
+  <% }) %>
+</ul>
 
-  <hr>
+<h2>Items</h2>
+<ul id="recentScanned">
+  <% items.forEach(item => { %>
+    <li>
+      <b><%= item.name %></b> - <%= item.description %> (Location: <%= item.location %>)
+      <form method="POST" action="/edit-item" style="display:inline;">
+        <input type="hidden" name="id" value="<%= item.id %>">
+        <input type="text" name="name" value="<%= item.name %>" required>
+        <input type="text" name="description" value="<%= item.description %>">
+        <input type="text" name="location" value="<%= item.location %>">
+        <button type="submit">Edit</button>
+      </form>
+    </li>
+  <% }) %>
+</ul>
 
-  <!-- Recently Scanned Items -->
-  <h2>Recently Scanned Items</h2>
-  <ul>
-    <% recentlyScanned.slice(-10).reverse().forEach(r => { 
-      const item = items[r.itemId];
-    %>
-      <li><%= item.name %> - <%= item.description %> - Code: <%= item.code %></li>
-    <% }) %>
-  </ul>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  const recent = document.getElementById('recentScanned');
 
-  <script src="/js/dashboard.js"></script>
-</body>
-</html>
+  socket.on('scan', code => {
+    const li = document.createElement('li');
+    li.textContent = code + ' (from scanner)';
+    recent.prepend(li);
+    if (recent.children.length > 10) recent.removeChild(recent.lastChild);
+  });
+</script>
