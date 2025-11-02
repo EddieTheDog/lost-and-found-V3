@@ -12,28 +12,41 @@
     Name: <input name="name" required>
     Contact: <input name="contact" required>
     Password (optional): <input name="password">
+    Missing Items (comma-separated): <input name="itemsList" required>
     <button type="submit">Add Claim</button>
   </form>
 
-  <h2>Add Item</h2>
+  <h2>Add Warehouse Item</h2>
   <form method="POST" action="/admin/item">
-    Claim ID: <input name="claimId" required>
     Description: <input name="description" required>
-    Location: <input name="location">
+    Location: <input name="location" required>
     <button type="submit">Add Item</button>
   </form>
 
   <h2>Existing Claims</h2>
   <ul>
     <% for(let c in claims){ %>
-      <li><strong><%= claims[c].name %></strong> (ID: <%= claims[c].id %>)</li>
+      <li><strong><%= claims[c].name %></strong> (ID: <%= claims[c].id %>) - Items: <%= claims[c].items.join(', ') %> 
+        [<a href="/claim/<%= claims[c].id %>/qr">QR Code</a>]
+      </li>
     <% } %>
   </ul>
 
-  <h2>Existing Items</h2>
+  <h2>Warehouse Items</h2>
   <ul>
     <% for(let i in items){ %>
-      <li><%= items[i].description %> - <%= items[i].status %> (ID: <%= items[i].id %>)</li>
+      <li><%= items[i].description %> - <%= items[i].status %> - <%= items[i].location %> 
+        [<a href="/item/<%= items[i].id %>/barcode">Barcode</a>]
+        <form style="display:inline" method="POST" action="/admin/item/<%= items[i].id %>/status">
+          <select name="status">
+            <option value="in warehouse" <%= items[i].status==='in warehouse'?'selected':'' %>>In Warehouse</option>
+            <option value="waiting for pickup" <%= items[i].status==='waiting for pickup'?'selected':'' %>>Waiting for Pickup</option>
+            <option value="returned" <%= items[i].status==='returned'?'selected':'' %>>Returned</option>
+          </select>
+          Link to Claim ID (optional): <input name="linkedClaimId" placeholder="Claim ID">
+          <button type="submit">Update</button>
+        </form>
+      </li>
     <% } %>
   </ul>
 </body>
