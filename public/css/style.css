@@ -2,3 +2,6 @@ body { font-family: Arial, sans-serif; margin: 20px; }
 input, select, button { margin: 5px; }
 button { cursor: pointer; }
 #claimItemsList div { margin-bottom: 5px; }
+ul { list-style: none; padding: 0; }
+li { margin-bottom: 10px; }
+hr { margin: 20px 0; }
