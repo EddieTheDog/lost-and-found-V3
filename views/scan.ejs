@@ -30,66 +30,67 @@
   <!-- ZXing UMD build -->
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/dist/index.min.js"></script>
 
+  <!-- Your custom code runs AFTER ZXing is loaded -->
   <script>
-    const video = document.getElementById('video');
-    const resultDiv = document.getElementById('result');
-    const modeSelect = document.getElementById('mode');
-    const permissionMessage = document.getElementById('permission-message');
-    const startBtn = document.getElementById('startBtn');
+    window.onload = function() {
+      const video = document.getElementById('video');
+      const resultDiv = document.getElementById('result');
+      const modeSelect = document.getElementById('mode');
+      const permissionMessage = document.getElementById('permission-message');
+      const startBtn = document.getElementById('startBtn');
 
-    const codeReader = new ZXing.BrowserMultiFormatReader();
-    let lastCode = null;
+      const codeReader = new ZXing.BrowserMultiFormatReader();
+      let lastCode = null;
 
-    startBtn.addEventListener('click', async () => {
-      try {
-        // Explicitly request camera access
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        video.srcObject = stream;
-        video.play();
+      startBtn.addEventListener('click', async () => {
+        try {
+          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+          video.srcObject = stream;
+          video.play();
 
-        const videoInputDevices = await codeReader.listVideoInputDevices();
-        if(videoInputDevices.length === 0){
-          permissionMessage.innerText = 'No camera found on this device.';
-          return;
-        }
-        const firstDeviceId = videoInputDevices[0].deviceId;
-
-        // Start live scanning
-        codeReader.decodeFromVideoDevice(firstDeviceId, video, async (result, err) => {
-          if(result){
-            const code = result.getText();
-            if(code === lastCode) return; // prevent duplicate scans
-            lastCode = code;
-
-            const mode = modeSelect.value;
-
-            try {
-              const res = await fetch('/scan', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ code, mode })
-              });
-              const data = await res.json();
-              if(data.success){
-                resultDiv.innerHTML = `✅ Scanned: ${data.item.name} - ${data.item.description} - Status: ${data.item.status} - Location: ${data.item.location}`;
-              } else {
-                resultDiv.innerHTML = `❌ Error: ${data.message}`;
-              }
-            } catch(e){
-              resultDiv.innerHTML = '❌ Network error';
-            }
-
-          } else if(err && !(err instanceof ZXing.NotFoundException)){
-            console.error(err);
+          const videoInputDevices = await codeReader.listVideoInputDevices();
+          if(videoInputDevices.length === 0){
+            permissionMessage.innerText = 'No camera found on this device.';
+            return;
           }
-        });
+          const firstDeviceId = videoInputDevices[0].deviceId;
 
-        startBtn.disabled = true; // prevent multiple clicks
-      } catch(err) {
-        permissionMessage.innerText = 'Camera access denied or not available. Please allow camera access.';
-        console.error(err);
-      }
-    });
+          codeReader.decodeFromVideoDevice(firstDeviceId, video, async (result, err) => {
+            if(result){
+              const code = result.getText();
+              if(code === lastCode) return;
+              lastCode = code;
+
+              const mode = modeSelect.value;
+
+              try {
+                const res = await fetch('/scan', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ code, mode })
+                });
+                const data = await res.json();
+                if(data.success){
+                  resultDiv.innerHTML = `✅ Scanned: ${data.item.name} - ${data.item.description} - Status: ${data.item.status} - Location: ${data.item.location}`;
+                } else {
+                  resultDiv.innerHTML = `❌ Error: ${data.message}`;
+                }
+              } catch(e){
+                resultDiv.innerHTML = '❌ Network error';
+              }
+
+            } else if(err && !(err instanceof ZXing.NotFoundException)){
+              console.error(err);
+            }
+          });
+
+          startBtn.disabled = true;
+        } catch(err) {
+          permissionMessage.innerText = 'Camera access denied or not available. Please allow camera access.';
+          console.error(err);
+        }
+      });
+    }
   </script>
 </body>
 </html>
