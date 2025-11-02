@@ -1,72 +1,23 @@
-<%- include('layout') %>
-
-<h1>Scanner</h1>
-
-<label for="actionSelect">Select Action:</label>
-<select id="actionSelect">
-  <option value="lookup">Lookup</option>
-  <option value="dashboard">Connect to Dashboard</option>
-</select>
-
-<br>
-<button id="startBtn">Start Camera</button>
-<button id="flipBtn">Flip Camera</button>
-
-<video id="video" autoplay muted></video>
-<div id="result">Scanned code will appear here</div>
-
-<ul id="recent"></ul>
-
-<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
-<script src="/socket.io/socket.io.js"></script>
-<script>
-  const socket = io();
-  const video = document.getElementById('video');
-  const resultDiv = document.getElementById('result');
-  const recentList = document.getElementById('recent');
-  const startBtn = document.getElementById('startBtn');
-  const flipBtn = document.getElementById('flipBtn');
-  const actionSelect = document.getElementById('actionSelect');
-
-  let selectedDeviceId;
-  let codeReader = new ZXing.BrowserMultiFormatReader();
-  let currentStream;
-  let useFront = false;
-
-  async function startCamera() {
-    const devices = await ZXing.BrowserCodeReader.listVideoInputDevices();
-    selectedDeviceId = useFront && devices.length > 1 ? devices[1].deviceId : devices[0].deviceId;
-    if (currentStream) {
-      currentStream.getTracks().forEach(track => track.stop());
-    }
-    const constraints = { video: { deviceId: { exact: selectedDeviceId } } };
-    currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-    video.srcObject = currentStream;
-
-    codeReader.decodeFromVideoDevice(selectedDeviceId, video, (result, err) => {
-      if (result) handleScan(result.text);
-    });
-  }
-
-  function handleScan(code) {
-    resultDiv.innerHTML = `Scanned: ${code}`;
-    const li = document.createElement('li');
-    li.textContent = code;
-    recentList.prepend(li);
-    if (recentList.children.length > 10) recentList.removeChild(recentList.lastChild);
-
-    if (actionSelect.value === 'lookup') {
-      fetch('/lookup/' + code)
-        .then(res => res.json())
-        .then(data => {
-          if (data.error) resultDiv.innerHTML += `<br>${data.error}`;
-          else resultDiv.innerHTML += `<br>Name: ${data.item.name}<br>Description: ${data.item.description}<br>Status: ${data.item.claimId ? 'Claimed' : 'Unclaimed'}<br>Location: ${data.item.location || 'N/A'}`;
-        });
-    } else if (actionSelect.value === 'dashboard') {
-      socket.emit('scan', code);
-    }
-  }
-
-  startBtn.addEventListener('click', startCamera);
-  flipBtn.addEventListener('click', () => { useFront = !useFront; startCamera(); });
-</script>
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Scan</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.3/umd/index.min.js"></script>
+</head>
+<body>
+  <h1>Scan Item</h1>
+  <video id="video" autoplay></video>
+  <div>
+    <button id="startBtn">Start Camera</button>
+    <button id="flipBtn">Flip Camera</button>
+    <select id="actionSelect">
+      <option value="lookup">Lookup</option>
+      <option value="dashboard">Send to Dashboard</option>
+    </select>
+  </div>
+  <div id="result"></div>
+  <ul id="recentList"></ul>
+  <script src="/scan.js"></script>
+</body>
+</html>
