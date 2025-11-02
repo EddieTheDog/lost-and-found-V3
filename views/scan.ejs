@@ -4,9 +4,10 @@
   <title>Live Barcode Scan</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
-    video { border: 1px solid black; width: 400px; height: 300px; }
+    video { border: 1px solid black; width: 400px; height: 300px; margin-top: 10px; }
     #result { margin-top: 20px; font-weight: bold; }
     #permission-message { color: red; font-weight: bold; margin-bottom: 10px; }
+    #startBtn { padding: 10px 20px; font-size: 16px; cursor: pointer; }
   </style>
 </head>
 <body>
@@ -20,7 +21,9 @@
     <option value="recent">Connect to Dashboard</option>
   </select>
 
-  <p>Point your camera at a barcode or QR code</p>
+  <p>Point your camera at a barcode or QR code, then click "Start Scanning"</p>
+  <button id="startBtn">Start Scanning</button>
+
   <video id="video" autoplay></video>
 
   <div id="result"></div>
@@ -32,18 +35,18 @@
     const resultDiv = document.getElementById('result');
     const modeSelect = document.getElementById('mode');
     const permissionMessage = document.getElementById('permission-message');
+    const startBtn = document.getElementById('startBtn');
 
     const codeReader = new BrowserMultiFormatReader();
     let lastCode = null; // prevent repeated scans
 
-    async function startCameraAndScan() {
+    startBtn.addEventListener('click', async () => {
       try {
-        // Explicitly request camera access
+        // Request camera access
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
         video.srcObject = stream;
         video.play();
 
-        // List available video devices
         const videoInputDevices = await codeReader.listVideoInputDevices();
         if(videoInputDevices.length === 0){
           permissionMessage.innerText = 'No camera found on this device.';
@@ -81,13 +84,12 @@
           }
         });
 
+        startBtn.disabled = true; // prevent multiple clicks
       } catch(err) {
-        permissionMessage.innerText = 'Camera access denied or not available. Please allow camera access to scan items.';
+        permissionMessage.innerText = 'Camera access denied or not available. Please allow camera access.';
         console.error(err);
       }
-    }
-
-    startCameraAndScan();
+    });
   </script>
 </body>
 </html>
