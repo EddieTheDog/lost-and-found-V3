@@ -1,15 +1,41 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Live Barcode Scan</title>
+  <title>Lost & Found Scanner</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f7f7f7; }
+    h1 { color: #333; }
+    video { border: 2px solid #444; width: 100%; max-width: 500px; height: auto; }
+    #controls { margin: 10px 0; }
+    button { padding: 10px 20px; font-size: 16px; margin-right: 10px; cursor: pointer; }
+    #result { margin-top: 15px; padding: 10px; background: #fff; border: 1px solid #ccc; }
+    select { padding: 8px; font-size: 16px; }
+    #recent { margin-top: 20px; }
+    .item { border-bottom: 1px solid #ddd; padding: 5px 0; }
+    .error { color: red; font-weight: bold; }
+  </style>
 </head>
 <body>
-  <h1>Live Scan</h1>
-  <button id="startBtn">Start Scan</button>
-  <video id="video" width="400" height="300" autoplay></video>
+  <h1>Lost & Found Scanner</h1>
+
+  <div id="controls">
+    <label for="mode">Mode:</label>
+    <select id="mode">
+      <option value="lookup">Lookup Item</option>
+      <option value="recent">Connect to Dashboard</option>
+    </select>
+    <button id="startBtn">Start Scanning</button>
+  </div>
+
+  <video id="video" autoplay muted></video>
   <div id="result"></div>
 
-  <!-- ZXing UMD -->
+  <div id="recent">
+    <h3>Recently Scanned Items</h3>
+    <div id="recentList"></div>
+  </div>
+
+  <!-- ZXing UMD library -->
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/dist/index.min.js"></script>
 
   <script>
@@ -17,6 +43,14 @@
       const startBtn = document.getElementById('startBtn');
       const video = document.getElementById('video');
       const resultDiv = document.getElementById('result');
+      const recentList = document.getElementById('recentList');
+      const modeSelect = document.getElementById('mode');
+
+      if (!window.ZXing) {
+        resultDiv.innerHTML = '<span class="error">Error: ZXing library not loaded.</span>';
+        return;
+      }
+
       const codeReader = new ZXing.BrowserMultiFormatReader();
       let lastCode = null;
 
@@ -27,7 +61,7 @@
 
           const devices = await codeReader.listVideoInputDevices();
           if (devices.length === 0) {
-            alert("No camera found");
+            resultDiv.innerHTML = '<span class="error">No camera found</span>';
             return;
           }
           const deviceId = devices[0].deviceId;
@@ -35,14 +69,41 @@
           codeReader.decodeFromVideoDevice(deviceId, video, (result, err) => {
             if (result && result.getText() !== lastCode) {
               lastCode = result.getText();
-              resultDiv.innerText = "Scanned: " + lastCode;
+              const mode = modeSelect.value;
+
+              if (mode === 'lookup') {
+                // Fetch item info from server
+                fetch('/scan', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ code: lastCode, mode })
+                })
+                .then(res => res.json())
+                .then(data => {
+                  if (data.success) {
+                    resultDiv.innerHTML = `✅ ${data.item.name} - ${data.item.description} - Status: ${data.item.status} - Location: ${data.item.location}`;
+                  } else {
+                    resultDiv.innerHTML = `<span class="error">❌ ${data.message}</span>`;
+                  }
+                }).catch(e => {
+                  resultDiv.innerHTML = '<span class="error">❌ Network error</span>';
+                });
+              } else if (mode === 'recent') {
+                const div = document.createElement('div');
+                div.className = 'item';
+                div.textContent = lastCode;
+                recentList.prepend(div);
+              }
             }
           });
+
+          startBtn.disabled = true;
         } catch (err) {
-          alert("Camera access denied or unavailable");
+          resultDiv.innerHTML = '<span class="error">Camera access denied or unavailable</span>';
+          console.error(err);
         }
       });
-    };
+    }
   </script>
 </body>
 </html>
